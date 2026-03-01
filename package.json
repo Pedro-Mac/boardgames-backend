@@ -18,18 +18,21 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "fastify": "^5.0.0",
-    "fastify-plugin": "^5.0.0",
     "@fastify/autoload": "^6.0.0",
+    "@fastify/jwt": "^10.0.0",
     "@fastify/sensible": "^6.0.0",
-    "fastify-cli": "^7.4.1"
+    "@supabase/supabase-js": "^2.98.0",
+    "fastify": "^5.0.0",
+    "fastify-cli": "^7.4.1",
+    "fastify-plugin": "^5.0.0",
+    "postgres": "^3.4.8"
   },
   "devDependencies": {
     "@types/node": "^24.0.8",
     "c8": "^10.1.2",
-    "ts-node": "^10.4.0",
     "concurrently": "^9.0.0",
     "fastify-tsconfig": "^3.0.0",
+    "ts-node": "^10.4.0",
     "typescript": "~5.9.2"
   }
 }
