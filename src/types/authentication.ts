@@ -1,5 +1,5 @@
-import { User } from "@supabase/supabase-js";
 import { Session } from "./session";
+import { User } from "./user";
 
 export interface LoginInput {
   email: string;

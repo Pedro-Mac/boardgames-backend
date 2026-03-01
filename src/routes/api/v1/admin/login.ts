@@ -1,9 +1,12 @@
 import { HttpError } from "@fastify/sensible";
 import { FastifyPluginAsync, RouteGenericInterface } from "fastify";
 import { User } from "../../../../types/user";
-import { Session } from "../../../../types/session";
 import { LoginInput, LoginOutput } from "../../../../types/authentication";
+import { Session } from "../../../../types/session";
 
+interface PermissionRow {
+  permissions: { name: string };
+}
 interface LoginRoute extends RouteGenericInterface {
   Body: LoginInput;
   Reply: LoginOutput | HttpError;
@@ -23,38 +26,52 @@ const login: FastifyPluginAsync = async (fastify): Promise<void> => {
       throw fastify.httpErrors.unauthorized("Invalid email or password");
     }
 
-    const permissions = await fastify.supabase
+    const permissionsQuery = await fastify.supabase
       .from("user_permissions")
       .select("permissions(name)")
-      .eq("user_id", auth.data.user.id)
-      .single();
+      .eq("user_id", auth.data.user.id);
 
-    if (permissions.error) {
-      console.error("Error fetching permissions:", permissions.error);
+    const permissionsData = permissionsQuery.data as PermissionRow[] | null;
+
+    if (permissionsQuery.error) {
+      console.error("Error fetching permissions:", permissionsQuery.error);
       throw fastify.httpErrors.internalServerError(
         "Failed to fetch user permissions",
       );
     }
 
-    if (!permissions.data) {
+    if (!permissionsData) {
       throw fastify.httpErrors.forbidden("User does not have permissions");
     }
 
-    // @ts-ignore
-    if (permissions.data.permissions.name !== "backoffice_view") {
+    const hasBackofficePermission = permissionsData.some(
+      (item) => item.permissions.name === "backoffice_view",
+    );
+
+    if (!hasBackofficePermission) {
       throw fastify.httpErrors.forbidden(
         "User does not have the required permissions",
       );
     }
 
-    const user = {};
+    const user: User = {
+      id: auth.data.user.id,
+      email: auth.data.user.email || "",
+      permissions: permissionsData.map((item) => item.permissions.name),
+    };
+
+    const session: Session = {
+      tokenType: auth.data.session.token_type,
+      accessToken: auth.data.session.access_token,
+      refreshToken: auth.data.session.refresh_token,
+      expiresAt: auth.data.session.expires_at || null,
+      expiresIn: auth.data.session.expires_in,
+    };
 
     // @ts-ignore
     user.email = auth.data.user.email;
 
-    console.log("obj", permissions);
-
-    reply.send({ message: "Login successful", auth });
+    reply.send({ user, session });
   });
 };
 
