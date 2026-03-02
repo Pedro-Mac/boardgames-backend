@@ -1,8 +1,8 @@
 import { HttpError } from "@fastify/sensible";
 import { FastifyPluginAsync, RouteGenericInterface } from "fastify";
-import { User } from "../../../../types/user";
-import { LoginInput, LoginOutput } from "../../../../types/authentication";
-import { Session } from "../../../../types/session";
+import { User } from "../../../../../types/user";
+import { LoginInput, LoginOutput } from "../../../../../types/authentication";
+import { Session } from "../../../../../types/session";
 
 interface PermissionRow {
   permissions: { name: string };
@@ -13,7 +13,7 @@ interface LoginRoute extends RouteGenericInterface {
 }
 
 const login: FastifyPluginAsync = async (fastify): Promise<void> => {
-  fastify.post<LoginRoute>("/login", async (request, reply) => {
+  fastify.post<LoginRoute>("/", async (request, reply) => {
     const { email, password } = request.body;
 
     const auth = await fastify.supabase.auth.signInWithPassword({
