@@ -20,12 +20,15 @@ FROM base AS build
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
 
-# Install node modules
+# Install node modules (include devDependencies for building)
 COPY package-lock.json package.json ./
-RUN npm ci
+RUN npm ci --include=dev
 
 # Copy application code
 COPY . .
+
+# Build TypeScript
+RUN npm run build:ts
 
 
 # Final stage for app image
@@ -36,4 +39,4 @@ COPY --from=build /app /app
 
 # Start the server by default, this can be overwritten at runtime
 EXPOSE 3000
-CMD [ "npx", "npm", "run", "build:ts", "&&", "fastify", "start", "--address", "0.0.0.0", "-l", "info", "dist/app.js" ]
+CMD [ "node", "node_modules/.bin/fastify", "start", "--address", "0.0.0.0", "-l", "info", "dist/app.js" ]
