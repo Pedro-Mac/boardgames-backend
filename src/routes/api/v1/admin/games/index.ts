@@ -40,7 +40,7 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
 
     if (game.error) {
       console.error("Error adding game:", game.error);
-      throw fastify.httpErrors.internalServerError("Failed to add game");
+      throw fastify.httpErrors.badRequest(game.error.message);
     }
 
     const newGame: CreateGameOutput = {
