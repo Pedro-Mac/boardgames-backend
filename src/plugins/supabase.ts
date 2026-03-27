@@ -1,10 +1,11 @@
 import fp from "fastify-plugin";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { Database } from "../types/database";
 
 export interface SupabasePluginOptions {}
 
 export default fp<SupabasePluginOptions>(async (fastify) => {
-  const supabase = createClient(
+  const supabase = createClient<Database>(
     process.env.SUPABASE_URL || "",
     process.env.SUPABASE_KEY || "",
   );
@@ -13,6 +14,6 @@ export default fp<SupabasePluginOptions>(async (fastify) => {
 
 declare module "fastify" {
   export interface FastifyInstance {
-    supabase: SupabaseClient;
+    supabase: SupabaseClient<Database>;
   }
 }
