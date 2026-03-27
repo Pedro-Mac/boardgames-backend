@@ -26,6 +26,12 @@ const login: FastifyPluginAsync = async (fastify): Promise<void> => {
       throw fastify.httpErrors.unauthorized("Invalid email or password");
     }
 
+    if (!auth.data.user.email) {
+      throw fastify.httpErrors.unauthorized(
+        "There was an issue with your account. Please contact support.",
+      );
+    }
+
     const permissionsQuery = await fastify.supabase
       .from("user_permissions")
       .select("permissions(name)")
@@ -68,7 +74,6 @@ const login: FastifyPluginAsync = async (fastify): Promise<void> => {
       expiresIn: auth.data.session.expires_in,
     };
 
-    // @ts-ignore
     user.email = auth.data.user.email;
 
     reply.send({ user, session });
