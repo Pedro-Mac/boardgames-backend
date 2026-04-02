@@ -1,14 +1,32 @@
 import { FastifyPluginAsync, RouteGenericInterface } from "fastify";
 import { CreateGameInput, CreateGameOutput } from "../../../../../types/games";
 import { HttpError } from "@fastify/sensible";
+import { Type } from "@sinclair/typebox";
 
 interface AddGameRoute extends RouteGenericInterface {
   Body: CreateGameInput;
   Reply: CreateGameOutput | HttpError;
 }
 
+const bodySchema = Type.Object({
+  name: Type.String(),
+  description: Type.String(),
+  price: Type.Number(),
+  min_players: Type.Number(),
+  max_players: Type.Number(),
+  min_play_time: Type.Number(),
+  max_play_time: Type.Number(),
+  age_recommendation: Type.Number(),
+  publisher: Type.String(),
+  year_published: Type.Number(),
+});
+
+const schema = {
+  body: bodySchema,
+};
+
 const games: FastifyPluginAsync = async (fastify): Promise<void> => {
-  fastify.post<AddGameRoute>("/", async (request, reply) => {
+  fastify.post<AddGameRoute>("/", { schema }, async (request, reply) => {
     const {
       name,
       description,
