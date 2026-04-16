@@ -54,7 +54,7 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
       year_published,
     } = request.body;
 
-    const game = await fastify.supabase
+    const response = await fastify.supabase
       .from("games")
       .insert({
         name,
@@ -70,14 +70,14 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
       })
       .select("*");
 
-    if (game.error) {
-      console.error("Error adding game:", game.error);
-      throw fastify.httpErrors.badRequest(game.error.message);
+    if (response.error) {
+      console.error("Error adding game:", response.error);
+      throw fastify.httpErrors.badRequest(response.error.message);
     }
 
     const newGame: CreateGameOutput = {
       game: {
-        id: game.data?.[0].id || "",
+        id: response.data?.[0].id || "",
         name,
         description,
         price,
@@ -88,10 +88,10 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
         age_recommendation,
         publisher,
         year_published,
-        created_at: game.data?.[0].created_at || "",
+        created_at: response.data?.[0].created_at || "",
         image_url: "", // This should be set to the URL of the uploaded image
         created_by: "", // This should be set to the user ID of the person who added the game
-        updated_at: game.data?.[0].created_at || "",
+        updated_at: response.data?.[0].created_at || "",
       },
     };
 
