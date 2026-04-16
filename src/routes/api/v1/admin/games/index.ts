@@ -2,6 +2,7 @@ import { FastifyPluginAsync, RouteGenericInterface } from "fastify";
 import { CreateGameInput, CreateGameOutput } from "../../../../../types/games";
 import { HttpError } from "@fastify/sensible";
 import { Type } from "@sinclair/typebox";
+import { requirePermission } from "../../../../../hooks/authorize";
 
 interface AddGameRoute extends RouteGenericInterface {
   Body: CreateGameInput;
@@ -26,21 +27,13 @@ const schema = {
 };
 
 const games: FastifyPluginAsync = async (fastify): Promise<void> => {
-  fastify.post<AddGameRoute>("/", { schema }, async (request, reply) => {
-    if (!request.headers.authorization) {
-      throw fastify.httpErrors.unauthorized("Missing authorization header");
-    }
-
-    const [signature, token] = request.headers.authorization.split(" ");
-
-    if (signature !== "Bearer" || !token) {
-      throw fastify.httpErrors.unauthorized("Invalid token format");
-    }
-
-    if (!token) {
-      throw fastify.httpErrors.unauthorized("Missing authorization token");
-    }
-
+  fastify.post<AddGameRoute>(
+    "/",
+    {
+      schema,
+      preHandler: [fastify.authenticate, requirePermission("game_create")],
+    },
+    async (request, reply) => {
     const {
       name,
       description,
@@ -73,6 +66,18 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
     if (response.error) {
       console.error("Error adding game:", response.error);
       throw fastify.httpErrors.badRequest(response.error.message);
+    }
+
+    if (!response.data || response.data.length === 0) {
+      throw fastify.httpErrors.failedDependency(
+        `Failed to retrieve the newly added game ${name}`,
+      );
+    }
+
+    if (!response.data?.[0].id) {
+      throw fastify.httpErrors.failedDependency(
+        `Failed to retrieve the ID of the newly added game ${name}`,
+      );
     }
 
     const newGame: CreateGameOutput = {

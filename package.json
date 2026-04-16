@@ -26,6 +26,7 @@
     "fastify": "^5.0.0",
     "fastify-cli": "^7.4.1",
     "fastify-plugin": "^5.0.0",
+    "get-jwks": "^11.0.3",
     "postgres": "^3.4.8"
   },
   "devDependencies": {

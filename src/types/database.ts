@@ -127,7 +127,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      set_user_claims: {
+        Args: { uid: string };
+        Returns: undefined;
+      };
     };
     Enums: {
       [_ in never]: never;

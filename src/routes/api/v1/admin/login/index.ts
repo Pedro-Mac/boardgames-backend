@@ -66,12 +66,31 @@ const login: FastifyPluginAsync = async (fastify): Promise<void> => {
       permissions: permissionsData.map((item) => item.permissions.name),
     };
 
+    // Sync permissions into JWT claims (app_metadata) so subsequent
+    // requests can read permissions from the token without a DB query.
+    const { error: claimsError } = await fastify.supabase.rpc(
+      "set_user_claims",
+      { uid: auth.data.user.id },
+    );
+
+    if (claimsError) {
+      fastify.log.error(claimsError, "Failed to sync user claims");
+    }
+
+    // Refresh the session to pick up the updated app_metadata in the JWT.
+    const { data: refreshData, error: refreshError } =
+      await fastify.supabase.auth.refreshSession({
+        refresh_token: auth.data.session.refresh_token,
+      });
+
+    const activeSession = refreshError ? auth.data.session : refreshData.session!;
+
     const session: Session = {
-      tokenType: auth.data.session.token_type,
-      accessToken: auth.data.session.access_token,
-      refreshToken: auth.data.session.refresh_token,
-      expiresAt: auth.data.session.expires_at || null,
-      expiresIn: auth.data.session.expires_in,
+      tokenType: activeSession.token_type,
+      accessToken: activeSession.access_token,
+      refreshToken: activeSession.refresh_token,
+      expiresAt: activeSession.expires_at || null,
+      expiresIn: activeSession.expires_in,
     };
 
     user.email = auth.data.user.email;
