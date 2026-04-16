@@ -52,3 +52,20 @@ export interface CreateGameOutput {
 export interface UpdateGameOutput {
   game: Game;
 }
+
+export interface ListGamesQuery {
+  page?: number;
+  size?: number;
+}
+
+export interface Pagination {
+  page: number;
+  size: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface ListGamesOutput {
+  games: Game[];
+  pagination: Pagination;
+}

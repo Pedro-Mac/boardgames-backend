@@ -1,5 +1,5 @@
 import { FastifyPluginAsync, RouteGenericInterface } from "fastify";
-import { CreateGameInput, CreateGameOutput } from "../../../../../types/games";
+import { CreateGameInput, CreateGameOutput, Game, ListGamesQuery, ListGamesOutput } from "../../../../../types/games";
 import { HttpError } from "@fastify/sensible";
 import { Type } from "@sinclair/typebox";
 import { requirePermission } from "../../../../../hooks/authorize";
@@ -26,7 +26,51 @@ const schema = {
   body: bodySchema,
 };
 
+interface ListGamesRoute extends RouteGenericInterface {
+  Querystring: ListGamesQuery;
+  Reply: ListGamesOutput | HttpError;
+}
+
+const listQuerySchema = Type.Object({
+  page: Type.Optional(Type.Number({ minimum: 1, default: 1 })),
+  size: Type.Optional(Type.Number({ minimum: 1, maximum: 100, default: 10 })),
+});
+
 const games: FastifyPluginAsync = async (fastify): Promise<void> => {
+  fastify.get<ListGamesRoute>(
+    "/",
+    {
+      schema: { querystring: listQuerySchema },
+      preHandler: [fastify.authenticate, requirePermission("game_view")],
+    },
+    async (request, reply) => {
+      const page = request.query.page ?? 1;
+      const size = request.query.size ?? 10;
+      const from = (page - 1) * size;
+      const to = from + size - 1;
+
+      const response = await fastify.supabase
+        .from("games")
+        .select("*", { count: "exact" })
+        .range(from, to);
+
+      if (response.error) {
+        console.error("Error listing games:", response.error);
+        throw fastify.httpErrors.badRequest(response.error.message);
+      }
+
+      const total = response.count ?? 0;
+      const totalPages = Math.ceil(total / size);
+
+      const result: ListGamesOutput = {
+        games: (response.data ?? []) as Game[],
+        pagination: { page, size, total, totalPages },
+      };
+
+      reply.send(result);
+    },
+  );
+
   fastify.post<AddGameRoute>(
     "/",
     {
