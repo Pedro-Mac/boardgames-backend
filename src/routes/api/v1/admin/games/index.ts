@@ -27,6 +27,20 @@ const schema = {
 
 const games: FastifyPluginAsync = async (fastify): Promise<void> => {
   fastify.post<AddGameRoute>("/", { schema }, async (request, reply) => {
+    if (!request.headers.authorization) {
+      throw fastify.httpErrors.unauthorized("Missing authorization header");
+    }
+
+    const [signature, token] = request.headers.authorization.split(" ");
+
+    if (signature !== "Bearer" || !token) {
+      throw fastify.httpErrors.unauthorized("Invalid token format");
+    }
+
+    if (!token) {
+      throw fastify.httpErrors.unauthorized("Missing authorization token");
+    }
+
     const {
       name,
       description,
