@@ -7,6 +7,8 @@ import {
   GetGameOutput,
   ListGamesQuery,
   ListGamesOutput,
+  UpdateGameInput,
+  UpdateGameOutput,
 } from "../../../../../types/games";
 import { HttpError } from "@fastify/sensible";
 import { Type } from "@sinclair/typebox";
@@ -47,6 +49,26 @@ interface ListGamesRoute extends RouteGenericInterface {
   Querystring: ListGamesQuery;
   Reply: ListGamesOutput | HttpError;
 }
+
+interface UpdateGameRoute extends RouteGenericInterface {
+  Params: GetGameParams;
+  Body: UpdateGameInput;
+  Reply: UpdateGameOutput | HttpError;
+}
+
+const updateBodySchema = Type.Object({
+  name: Type.Optional(Type.String()),
+  description: Type.Optional(Type.String()),
+  price: Type.Optional(Type.Number()),
+  min_players: Type.Optional(Type.Number()),
+  max_players: Type.Optional(Type.Number()),
+  min_play_time: Type.Optional(Type.Number()),
+  max_play_time: Type.Optional(Type.Number()),
+  age_recommendation: Type.Optional(Type.Number()),
+  publisher: Type.Optional(Type.String()),
+  year_published: Type.Optional(Type.Number()),
+  image_url: Type.Optional(Type.String()),
+});
 
 const listQuerySchema = Type.Object({
   page: Type.Optional(Type.Number({ minimum: 1, default: 1 })),
@@ -112,6 +134,42 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
       }
 
       const result: GetGameOutput = {
+        game: response.data as Game,
+      };
+
+      reply.send(result);
+    },
+  );
+
+  fastify.put<UpdateGameRoute>(
+    "/:id",
+    {
+      schema: { params: getGameParamsSchema, body: updateBodySchema },
+      preHandler: [fastify.authenticate, requirePermission("game_update")],
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      if (Object.keys(request.body).length === 0) {
+        throw fastify.httpErrors.badRequest("At least one field must be provided");
+      }
+
+      const response = await fastify.supabase
+        .from("games")
+        .update(request.body)
+        .eq("id", id)
+        .select("*")
+        .single();
+
+      if (response.error) {
+        console.error("Error updating game:", response.error);
+        if (response.error.code === "PGRST116") {
+          throw fastify.httpErrors.notFound(`Game with id ${id} not found`);
+        }
+        throw fastify.httpErrors.badRequest(response.error.message);
+      }
+
+      const result: UpdateGameOutput = {
         game: response.data as Game,
       };
 

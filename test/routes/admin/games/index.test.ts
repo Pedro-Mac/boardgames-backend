@@ -4,7 +4,7 @@ import Fastify from "fastify";
 import fastifyJwt from "@fastify/jwt";
 import sensible from "@fastify/sensible";
 import { requirePermission } from "../../../../src/hooks/authorize";
-import { ListGamesQuery, ListGamesOutput, GetGameParams, GetGameOutput } from "../../../../src/types/games";
+import { ListGamesQuery, ListGamesOutput, GetGameParams, GetGameOutput, UpdateGameInput, UpdateGameOutput } from "../../../../src/types/games";
 import { Type } from "@sinclair/typebox";
 
 const TEST_SECRET = "test-secret-that-is-at-least-32-characters-long";
@@ -35,6 +35,8 @@ interface MockSupabaseOptions {
   selectError?: { message: string } | null;
   singleData?: unknown | null;
   singleError?: { message: string; code?: string } | null;
+  updateData?: unknown | null;
+  updateError?: { message: string; code?: string } | null;
 }
 
 function createMockSupabase(opts: MockSupabaseOptions = {}) {
@@ -44,6 +46,8 @@ function createMockSupabase(opts: MockSupabaseOptions = {}) {
     selectError = null,
     singleData = null,
     singleError = null,
+    updateData = null,
+    updateError = null,
   } = opts;
 
   return {
@@ -61,6 +65,17 @@ function createMockSupabase(opts: MockSupabaseOptions = {}) {
               data: singleData,
               error: singleError,
             }),
+        }),
+      }),
+      update: () => ({
+        eq: () => ({
+          select: () => ({
+            single: () =>
+              Promise.resolve({
+                data: updateData,
+                error: updateError,
+              }),
+          }),
         }),
       }),
     }),
@@ -142,6 +157,51 @@ async function buildApp(opts: BuildOptions = {}) {
         .from("games")
         .select("*")
         .eq("id", id)
+        .single();
+
+      if (response.error) {
+        if (response.error.code === "PGRST116") {
+          throw app.httpErrors.notFound(`Game with id ${id} not found`);
+        }
+        throw app.httpErrors.badRequest(response.error.message);
+      }
+
+      return { game: response.data };
+    },
+  );
+
+  const updateBodySchema = Type.Object({
+    name: Type.Optional(Type.String()),
+    description: Type.Optional(Type.String()),
+    price: Type.Optional(Type.Number()),
+    min_players: Type.Optional(Type.Number()),
+    max_players: Type.Optional(Type.Number()),
+    min_play_time: Type.Optional(Type.Number()),
+    max_play_time: Type.Optional(Type.Number()),
+    age_recommendation: Type.Optional(Type.Number()),
+    publisher: Type.Optional(Type.String()),
+    year_published: Type.Optional(Type.Number()),
+    image_url: Type.Optional(Type.String()),
+  });
+
+  app.put<{ Params: GetGameParams; Body: UpdateGameInput; Reply: UpdateGameOutput }>(
+    "/api/v1/admin/games/:id",
+    {
+      schema: { params: getGameParamsSchema, body: updateBodySchema },
+      preHandler: [app.authenticate, requirePermission("game_update")],
+    },
+    async (request) => {
+      const { id } = request.params;
+
+      if (Object.keys(request.body).length === 0) {
+        throw app.httpErrors.badRequest("At least one field must be provided");
+      }
+
+      const response = await mockSupabase
+        .from("games")
+        .update(request.body)
+        .eq("id", id)
+        .select("*")
         .single();
 
       if (response.error) {
@@ -326,6 +386,107 @@ test("get game rejects unauthenticated request", async () => {
   const res = await app.inject({
     method: "GET",
     url: "/api/v1/admin/games/game-1",
+  });
+
+  assert.strictEqual(res.statusCode, 401);
+  await app.close();
+});
+
+// --- Update game tests ---
+
+test("update game returns updated game", async () => {
+  const updatedGame = { ...makeFakeGame(1), name: "Updated Name" };
+  const { app, token } = await buildApp({
+    permissions: ["game_update"],
+    supabase: { updateData: updatedGame },
+  });
+
+  const res = await app.inject({
+    method: "PUT",
+    url: "/api/v1/admin/games/game-1",
+    headers: { authorization: `Bearer ${token}` },
+    payload: { name: "Updated Name" },
+  });
+
+  assert.strictEqual(res.statusCode, 200);
+  const payload = JSON.parse(res.payload);
+  assert.deepStrictEqual(payload.game, updatedGame);
+  await app.close();
+});
+
+test("update game returns 400 when body is empty", async () => {
+  const { app, token } = await buildApp({
+    permissions: ["game_update"],
+  });
+
+  const res = await app.inject({
+    method: "PUT",
+    url: "/api/v1/admin/games/game-1",
+    headers: { authorization: `Bearer ${token}` },
+    payload: {},
+  });
+
+  assert.strictEqual(res.statusCode, 400);
+  await app.close();
+});
+
+test("update game returns 404 when game not found", async () => {
+  const { app, token } = await buildApp({
+    permissions: ["game_update"],
+    supabase: { updateError: { message: "not found", code: "PGRST116" } },
+  });
+
+  const res = await app.inject({
+    method: "PUT",
+    url: "/api/v1/admin/games/nonexistent-id",
+    headers: { authorization: `Bearer ${token}` },
+    payload: { name: "Updated Name" },
+  });
+
+  assert.strictEqual(res.statusCode, 404);
+  await app.close();
+});
+
+test("update game returns 400 on database error", async () => {
+  const { app, token } = await buildApp({
+    permissions: ["game_update"],
+    supabase: { updateError: { message: "database error", code: "PGRST000" } },
+  });
+
+  const res = await app.inject({
+    method: "PUT",
+    url: "/api/v1/admin/games/game-1",
+    headers: { authorization: `Bearer ${token}` },
+    payload: { name: "Updated Name" },
+  });
+
+  assert.strictEqual(res.statusCode, 400);
+  await app.close();
+});
+
+test("update game rejects request without game_update permission", async () => {
+  const { app, token } = await buildApp({
+    permissions: ["game_view"],
+  });
+
+  const res = await app.inject({
+    method: "PUT",
+    url: "/api/v1/admin/games/game-1",
+    headers: { authorization: `Bearer ${token}` },
+    payload: { name: "Updated Name" },
+  });
+
+  assert.strictEqual(res.statusCode, 403);
+  await app.close();
+});
+
+test("update game rejects unauthenticated request", async () => {
+  const { app } = await buildApp();
+
+  const res = await app.inject({
+    method: "PUT",
+    url: "/api/v1/admin/games/game-1",
+    payload: { name: "Updated Name" },
   });
 
   assert.strictEqual(res.statusCode, 401);
