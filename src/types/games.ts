@@ -53,6 +53,14 @@ export interface UpdateGameOutput {
   game: Game;
 }
 
+export interface GetGameParams {
+  id: string;
+}
+
+export interface GetGameOutput {
+  game: Game;
+}
+
 export interface ListGamesQuery {
   page?: number;
   size?: number;

@@ -1,5 +1,13 @@
 import { FastifyPluginAsync, RouteGenericInterface } from "fastify";
-import { CreateGameInput, CreateGameOutput, Game, ListGamesQuery, ListGamesOutput } from "../../../../../types/games";
+import {
+  CreateGameInput,
+  CreateGameOutput,
+  Game,
+  GetGameParams,
+  GetGameOutput,
+  ListGamesQuery,
+  ListGamesOutput,
+} from "../../../../../types/games";
 import { HttpError } from "@fastify/sensible";
 import { Type } from "@sinclair/typebox";
 import { requirePermission } from "../../../../../hooks/authorize";
@@ -25,6 +33,15 @@ const bodySchema = Type.Object({
 const schema = {
   body: bodySchema,
 };
+
+interface GetGameRoute extends RouteGenericInterface {
+  Params: GetGameParams;
+  Reply: GetGameOutput | HttpError;
+}
+
+const getGameParamsSchema = Type.Object({
+  id: Type.String(),
+});
 
 interface ListGamesRoute extends RouteGenericInterface {
   Querystring: ListGamesQuery;
@@ -71,6 +88,37 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
     },
   );
 
+  fastify.get<GetGameRoute>(
+    "/:id",
+    {
+      schema: { params: getGameParamsSchema },
+      preHandler: [fastify.authenticate, requirePermission("game_view")],
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const response = await fastify.supabase
+        .from("games")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (response.error) {
+        console.error("Error fetching game:", response.error);
+        if (response.error.code === "PGRST116") {
+          throw fastify.httpErrors.notFound(`Game with id ${id} not found`);
+        }
+        throw fastify.httpErrors.badRequest(response.error.message);
+      }
+
+      const result: GetGameOutput = {
+        game: response.data as Game,
+      };
+
+      reply.send(result);
+    },
+  );
+
   fastify.post<AddGameRoute>(
     "/",
     {
@@ -78,22 +126,7 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
       preHandler: [fastify.authenticate, requirePermission("game_create")],
     },
     async (request, reply) => {
-    const {
-      name,
-      description,
-      price,
-      min_players,
-      max_players,
-      min_play_time,
-      max_play_time,
-      age_recommendation,
-      publisher,
-      year_published,
-    } = request.body;
-
-    const response = await fastify.supabase
-      .from("games")
-      .insert({
+      const {
         name,
         description,
         price,
@@ -104,48 +137,64 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
         age_recommendation,
         publisher,
         year_published,
-      })
-      .select("*");
+      } = request.body;
 
-    if (response.error) {
-      console.error("Error adding game:", response.error);
-      throw fastify.httpErrors.badRequest(response.error.message);
-    }
+      const response = await fastify.supabase
+        .from("games")
+        .insert({
+          name,
+          description,
+          price,
+          min_players,
+          max_players,
+          min_play_time,
+          max_play_time,
+          age_recommendation,
+          publisher,
+          year_published,
+        })
+        .select("*");
 
-    if (!response.data || response.data.length === 0) {
-      throw fastify.httpErrors.failedDependency(
-        `Failed to retrieve the newly added game ${name}`,
-      );
-    }
+      if (response.error) {
+        console.error("Error adding game:", response.error);
+        throw fastify.httpErrors.badRequest(response.error.message);
+      }
 
-    if (!response.data?.[0].id) {
-      throw fastify.httpErrors.failedDependency(
-        `Failed to retrieve the ID of the newly added game ${name}`,
-      );
-    }
+      if (!response.data || response.data.length === 0) {
+        throw fastify.httpErrors.failedDependency(
+          `Failed to retrieve the newly added game ${name}`,
+        );
+      }
 
-    const newGame: CreateGameOutput = {
-      game: {
-        id: response.data?.[0].id || "",
-        name,
-        description,
-        price,
-        min_players,
-        max_players,
-        min_play_time,
-        max_play_time,
-        age_recommendation,
-        publisher,
-        year_published,
-        created_at: response.data?.[0].created_at || "",
-        image_url: "", // This should be set to the URL of the uploaded image
-        created_by: "", // This should be set to the user ID of the person who added the game
-        updated_at: response.data?.[0].created_at || "",
-      },
-    };
+      if (!response.data?.[0].id) {
+        throw fastify.httpErrors.failedDependency(
+          `Failed to retrieve the ID of the newly added game ${name}`,
+        );
+      }
 
-    reply.send(newGame);
-  });
+      const newGame: CreateGameOutput = {
+        game: {
+          id: response.data?.[0].id || "",
+          name,
+          description,
+          price,
+          min_players,
+          max_players,
+          min_play_time,
+          max_play_time,
+          age_recommendation,
+          publisher,
+          year_published,
+          created_at: response.data?.[0].created_at || "",
+          image_url: "", // This should be set to the URL of the uploaded image
+          created_by: "", // This should be set to the user ID of the person who added the game
+          updated_at: response.data?.[0].created_at || "",
+        },
+      };
+
+      reply.send(newGame);
+    },
+  );
 };
 
 export default games;

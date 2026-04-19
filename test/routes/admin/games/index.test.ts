@@ -4,7 +4,7 @@ import Fastify from "fastify";
 import fastifyJwt from "@fastify/jwt";
 import sensible from "@fastify/sensible";
 import { requirePermission } from "../../../../src/hooks/authorize";
-import { ListGamesQuery, ListGamesOutput } from "../../../../src/types/games";
+import { ListGamesQuery, ListGamesOutput, GetGameParams, GetGameOutput } from "../../../../src/types/games";
 import { Type } from "@sinclair/typebox";
 
 const TEST_SECRET = "test-secret-that-is-at-least-32-characters-long";
@@ -29,20 +29,51 @@ function makeFakeGame(index: number) {
   };
 }
 
+interface MockSupabaseOptions {
+  selectData?: unknown[] | null;
+  selectCount?: number;
+  selectError?: { message: string } | null;
+  singleData?: unknown | null;
+  singleError?: { message: string; code?: string } | null;
+}
+
+function createMockSupabase(opts: MockSupabaseOptions = {}) {
+  const {
+    selectData = [],
+    selectCount = 0,
+    selectError = null,
+    singleData = null,
+    singleError = null,
+  } = opts;
+
+  return {
+    from: () => ({
+      select: () => ({
+        range: () =>
+          Promise.resolve({
+            data: selectData,
+            count: selectCount,
+            error: selectError,
+          }),
+        eq: () => ({
+          single: () =>
+            Promise.resolve({
+              data: singleData,
+              error: singleError,
+            }),
+        }),
+      }),
+    }),
+  };
+}
+
 interface BuildOptions {
   permissions?: string[];
-  supabaseData?: unknown[];
-  supabaseCount?: number;
-  supabaseError?: { message: string } | null;
+  supabase?: MockSupabaseOptions;
 }
 
 async function buildApp(opts: BuildOptions = {}) {
-  const {
-    permissions = ["game_view"],
-    supabaseData = [],
-    supabaseCount = 0,
-    supabaseError = null,
-  } = opts;
+  const { permissions = ["game_view"], supabase = {} } = opts;
 
   const app = Fastify();
   await app.register(sensible);
@@ -54,25 +85,17 @@ async function buildApp(opts: BuildOptions = {}) {
   };
   app.decorate("authenticate", authenticate);
 
-  // Mock supabase client
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mockSupabase: any = {
-    from: () => ({
-      select: () => ({
-        range: () =>
-          Promise.resolve({
-            data: supabaseData,
-            count: supabaseCount,
-            error: supabaseError,
-          }),
-      }),
-    }),
-  };
+  const mockSupabase: any = createMockSupabase(supabase);
   app.decorate("supabase", mockSupabase);
 
   const listQuerySchema = Type.Object({
     page: Type.Optional(Type.Number({ minimum: 1, default: 1 })),
     size: Type.Optional(Type.Number({ minimum: 1, maximum: 100, default: 10 })),
+  });
+
+  const getGameParamsSchema = Type.Object({
+    id: Type.String(),
   });
 
   app.get<{ Querystring: ListGamesQuery; Reply: ListGamesOutput }>(
@@ -106,6 +129,32 @@ async function buildApp(opts: BuildOptions = {}) {
     },
   );
 
+  app.get<{ Params: GetGameParams; Reply: GetGameOutput }>(
+    "/api/v1/admin/games/:id",
+    {
+      schema: { params: getGameParamsSchema },
+      preHandler: [app.authenticate, requirePermission("game_view")],
+    },
+    async (request) => {
+      const { id } = request.params;
+
+      const response = await mockSupabase
+        .from("games")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (response.error) {
+        if (response.error.code === "PGRST116") {
+          throw app.httpErrors.notFound(`Game with id ${id} not found`);
+        }
+        throw app.httpErrors.badRequest(response.error.message);
+      }
+
+      return { game: response.data };
+    },
+  );
+
   await app.ready();
 
   const token = app.jwt.sign({
@@ -116,11 +165,12 @@ async function buildApp(opts: BuildOptions = {}) {
   return { app, token };
 }
 
+// --- List games tests ---
+
 test("list games returns paginated results", async () => {
   const games = Array.from({ length: 3 }, (_, i) => makeFakeGame(i + 1));
   const { app, token } = await buildApp({
-    supabaseData: games,
-    supabaseCount: 25,
+    supabase: { selectData: games, selectCount: 25 },
   });
 
   const res = await app.inject({
@@ -143,8 +193,7 @@ test("list games returns paginated results", async () => {
 
 test("list games uses default page and size", async () => {
   const { app, token } = await buildApp({
-    supabaseData: [],
-    supabaseCount: 0,
+    supabase: { selectData: [], selectCount: 0 },
   });
 
   const res = await app.inject({
@@ -193,7 +242,7 @@ test("list games rejects unauthenticated request", async () => {
 
 test("list games returns error when supabase fails", async () => {
   const { app, token } = await buildApp({
-    supabaseError: { message: "database error" },
+    supabase: { selectError: { message: "database error" } },
   });
 
   const res = await app.inject({
@@ -203,5 +252,82 @@ test("list games returns error when supabase fails", async () => {
   });
 
   assert.strictEqual(res.statusCode, 400);
+  await app.close();
+});
+
+// --- Get game by id tests ---
+
+test("get game returns game when found", async () => {
+  const game = makeFakeGame(1);
+  const { app, token } = await buildApp({
+    supabase: { singleData: game },
+  });
+
+  const res = await app.inject({
+    method: "GET",
+    url: "/api/v1/admin/games/game-1",
+    headers: { authorization: `Bearer ${token}` },
+  });
+
+  assert.strictEqual(res.statusCode, 200);
+  const payload = JSON.parse(res.payload);
+  assert.deepStrictEqual(payload.game, game);
+  await app.close();
+});
+
+test("get game returns 404 when game not found", async () => {
+  const { app, token } = await buildApp({
+    supabase: { singleError: { message: "not found", code: "PGRST116" } },
+  });
+
+  const res = await app.inject({
+    method: "GET",
+    url: "/api/v1/admin/games/nonexistent-id",
+    headers: { authorization: `Bearer ${token}` },
+  });
+
+  assert.strictEqual(res.statusCode, 404);
+  await app.close();
+});
+
+test("get game returns 400 on database error", async () => {
+  const { app, token } = await buildApp({
+    supabase: { singleError: { message: "database error", code: "PGRST000" } },
+  });
+
+  const res = await app.inject({
+    method: "GET",
+    url: "/api/v1/admin/games/game-1",
+    headers: { authorization: `Bearer ${token}` },
+  });
+
+  assert.strictEqual(res.statusCode, 400);
+  await app.close();
+});
+
+test("get game rejects request without game_view permission", async () => {
+  const { app, token } = await buildApp({
+    permissions: ["other_permission"],
+  });
+
+  const res = await app.inject({
+    method: "GET",
+    url: "/api/v1/admin/games/game-1",
+    headers: { authorization: `Bearer ${token}` },
+  });
+
+  assert.strictEqual(res.statusCode, 403);
+  await app.close();
+});
+
+test("get game rejects unauthenticated request", async () => {
+  const { app } = await buildApp();
+
+  const res = await app.inject({
+    method: "GET",
+    url: "/api/v1/admin/games/game-1",
+  });
+
+  assert.strictEqual(res.statusCode, 401);
   await app.close();
 });
