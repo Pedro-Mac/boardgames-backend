@@ -41,6 +41,11 @@ interface GetGameRoute extends RouteGenericInterface {
   Reply: GetGameOutput | HttpError;
 }
 
+interface DeleteGameRoute extends RouteGenericInterface {
+  Params: GetGameParams;
+  Reply: void | HttpError;
+}
+
 const getGameParamsSchema = Type.Object({
   id: Type.String(),
 });
@@ -174,6 +179,34 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
       };
 
       reply.send(result);
+    },
+  );
+
+  fastify.delete<DeleteGameRoute>(
+    "/:id",
+    {
+      schema: { params: getGameParamsSchema },
+      preHandler: [fastify.authenticate, requirePermission("game_delete")],
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const response = await fastify.supabase
+        .from("games")
+        .delete()
+        .eq("id", id)
+        .select("*")
+        .single();
+
+      if (response.error) {
+        console.error("Error deleting game:", response.error);
+        if (response.error.code === "PGRST116") {
+          throw fastify.httpErrors.notFound(`Game with id ${id} not found`);
+        }
+        throw fastify.httpErrors.badRequest(response.error.message);
+      }
+
+      reply.code(204).send(undefined);
     },
   );
 

@@ -37,6 +37,7 @@ interface MockSupabaseOptions {
   singleError?: { message: string; code?: string } | null;
   updateData?: unknown | null;
   updateError?: { message: string; code?: string } | null;
+  deleteError?: { message: string; code?: string } | null;
 }
 
 function createMockSupabase(opts: MockSupabaseOptions = {}) {
@@ -48,6 +49,7 @@ function createMockSupabase(opts: MockSupabaseOptions = {}) {
     singleError = null,
     updateData = null,
     updateError = null,
+    deleteError = null,
   } = opts;
 
   return {
@@ -74,6 +76,17 @@ function createMockSupabase(opts: MockSupabaseOptions = {}) {
               Promise.resolve({
                 data: updateData,
                 error: updateError,
+              }),
+          }),
+        }),
+      }),
+      delete: () => ({
+        eq: () => ({
+          select: () => ({
+            single: () =>
+              Promise.resolve({
+                data: null,
+                error: deleteError,
               }),
           }),
         }),
@@ -212,6 +225,33 @@ async function buildApp(opts: BuildOptions = {}) {
       }
 
       return { game: response.data };
+    },
+  );
+
+  app.delete<{ Params: GetGameParams }>(
+    "/api/v1/admin/games/:id",
+    {
+      schema: { params: getGameParamsSchema },
+      preHandler: [app.authenticate, requirePermission("game_delete")],
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const response = await mockSupabase
+        .from("games")
+        .delete()
+        .eq("id", id)
+        .select("*")
+        .single();
+
+      if (response.error) {
+        if (response.error.code === "PGRST116") {
+          throw app.httpErrors.notFound(`Game with id ${id} not found`);
+        }
+        throw app.httpErrors.badRequest(response.error.message);
+      }
+
+      reply.code(204).send(undefined);
     },
   );
 
@@ -487,6 +527,83 @@ test("update game rejects unauthenticated request", async () => {
     method: "PUT",
     url: "/api/v1/admin/games/game-1",
     payload: { name: "Updated Name" },
+  });
+
+  assert.strictEqual(res.statusCode, 401);
+  await app.close();
+});
+
+// --- Delete game tests ---
+
+test("delete game returns 204 on success", async () => {
+  const { app, token } = await buildApp({
+    permissions: ["game_delete"],
+  });
+
+  const res = await app.inject({
+    method: "DELETE",
+    url: "/api/v1/admin/games/game-1",
+    headers: { authorization: `Bearer ${token}` },
+  });
+
+  assert.strictEqual(res.statusCode, 204);
+  assert.strictEqual(res.payload, "");
+  await app.close();
+});
+
+test("delete game returns 404 when game not found", async () => {
+  const { app, token } = await buildApp({
+    permissions: ["game_delete"],
+    supabase: { deleteError: { message: "not found", code: "PGRST116" } },
+  });
+
+  const res = await app.inject({
+    method: "DELETE",
+    url: "/api/v1/admin/games/nonexistent-id",
+    headers: { authorization: `Bearer ${token}` },
+  });
+
+  assert.strictEqual(res.statusCode, 404);
+  await app.close();
+});
+
+test("delete game returns 400 on database error", async () => {
+  const { app, token } = await buildApp({
+    permissions: ["game_delete"],
+    supabase: { deleteError: { message: "database error", code: "PGRST000" } },
+  });
+
+  const res = await app.inject({
+    method: "DELETE",
+    url: "/api/v1/admin/games/game-1",
+    headers: { authorization: `Bearer ${token}` },
+  });
+
+  assert.strictEqual(res.statusCode, 400);
+  await app.close();
+});
+
+test("delete game rejects request without game_delete permission", async () => {
+  const { app, token } = await buildApp({
+    permissions: ["game_view"],
+  });
+
+  const res = await app.inject({
+    method: "DELETE",
+    url: "/api/v1/admin/games/game-1",
+    headers: { authorization: `Bearer ${token}` },
+  });
+
+  assert.strictEqual(res.statusCode, 403);
+  await app.close();
+});
+
+test("delete game rejects unauthenticated request", async () => {
+  const { app } = await buildApp();
+
+  const res = await app.inject({
+    method: "DELETE",
+    url: "/api/v1/admin/games/game-1",
   });
 
   assert.strictEqual(res.statusCode, 401);
