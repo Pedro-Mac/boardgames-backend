@@ -5,6 +5,7 @@ import { requirePermission } from "../../../../../hooks/authorize";
 import {
   CreatePermissionInput,
   CreatePermissionOutput,
+  DeletePermissionParams,
 } from "../../../../../types/permissions";
 import { supabaseErrorCode } from "../../../../../constants/supabase-errors";
 
@@ -13,8 +14,17 @@ interface CreatePermissionRoute extends RouteGenericInterface {
   Reply: CreatePermissionOutput | HttpError;
 }
 
+interface DeletePermissionRoute extends RouteGenericInterface {
+  Params: DeletePermissionParams;
+  Reply: void | HttpError;
+}
+
 const createPermissionBodySchema = Type.Object({
   name: Type.String({ minLength: 1 }),
+});
+
+const deletePermissionParamsSchema = Type.Object({
+  id: Type.String(),
 });
 
 const permissions: FastifyPluginAsync = async (fastify): Promise<void> => {
@@ -50,6 +60,40 @@ const permissions: FastifyPluginAsync = async (fastify): Promise<void> => {
       };
 
       reply.code(201).send(result);
+    },
+  );
+
+  fastify.delete<DeletePermissionRoute>(
+    "/:id",
+    {
+      schema: { params: deletePermissionParamsSchema },
+      preHandler: [fastify.authenticate, requirePermission("permissions_manage")],
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const response = await fastify.supabase
+        .from("permissions")
+        .delete()
+        .eq("id", id)
+        .select("id")
+        .single();
+
+      if (response.error) {
+        if (response.error.code === supabaseErrorCode.rowNotFound) {
+          throw fastify.httpErrors.notFound(`Permission with id ${id} not found`);
+        }
+
+        if (response.error.code === supabaseErrorCode.foreignKeyViolation) {
+          throw fastify.httpErrors.conflict(
+            "Permission is assigned to users and cannot be deleted",
+          );
+        }
+
+        throw fastify.httpErrors.badRequest(response.error.message);
+      }
+
+      reply.code(204).send(undefined);
     },
   );
 };

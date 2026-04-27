@@ -10,3 +10,7 @@ export interface CreatePermissionInput {
 export interface CreatePermissionOutput {
   permission: Permission;
 }
+
+export interface DeletePermissionParams {
+  id: string;
+}
