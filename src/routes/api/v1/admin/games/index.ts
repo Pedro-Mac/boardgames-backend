@@ -13,6 +13,7 @@ import {
 import { HttpError } from "@fastify/sensible";
 import { Type } from "@sinclair/typebox";
 import { requirePermission } from "../../../../../hooks/authorize";
+import { supabaseErrorCode } from "../../../../../constants/supabase-errors";
 
 interface AddGameRoute extends RouteGenericInterface {
   Body: CreateGameInput;
@@ -132,7 +133,7 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
 
       if (response.error) {
         console.error("Error fetching game:", response.error);
-        if (response.error.code === "PGRST116") {
+        if (response.error.code === supabaseErrorCode.rowNotFound) {
           throw fastify.httpErrors.notFound(`Game with id ${id} not found`);
         }
         throw fastify.httpErrors.badRequest(response.error.message);
@@ -168,7 +169,7 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
 
       if (response.error) {
         console.error("Error updating game:", response.error);
-        if (response.error.code === "PGRST116") {
+        if (response.error.code === supabaseErrorCode.rowNotFound) {
           throw fastify.httpErrors.notFound(`Game with id ${id} not found`);
         }
         throw fastify.httpErrors.badRequest(response.error.message);
@@ -200,7 +201,7 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
 
       if (response.error) {
         console.error("Error deleting game:", response.error);
-        if (response.error.code === "PGRST116") {
+        if (response.error.code === supabaseErrorCode.rowNotFound) {
           throw fastify.httpErrors.notFound(`Game with id ${id} not found`);
         }
         throw fastify.httpErrors.badRequest(response.error.message);
