@@ -2,7 +2,6 @@ import { HttpError } from "@fastify/sensible";
 import { Type } from "@sinclair/typebox";
 import { FastifyPluginAsync, RouteGenericInterface } from "fastify";
 import { requirePermission } from "../../../../../hooks/authorize";
-import { SupabaseJwtPayload } from "../../../../../plugins/jwt";
 import {
   AssignPermissionToUserBody,
   AssignPermissionToUserParams,

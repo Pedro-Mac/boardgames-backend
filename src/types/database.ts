@@ -14,12 +14,62 @@ export type Database = {
   };
   public: {
     Tables: {
+      categories: {
+        Row: {
+          created_at: string;
+          id: string;
+          name: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          name: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          name?: string;
+        };
+        Relationships: [];
+      };
+      game_categories: {
+        Row: {
+          category_id: string;
+          game_id: string;
+        };
+        Insert: {
+          category_id: string;
+          game_id: string;
+        };
+        Update: {
+          category_id?: string;
+          game_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "game_categories_game_id_fkey";
+            columns: ["game_id"];
+            isOneToOne: false;
+            referencedRelation: "games";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "game_categories_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       games: {
         Row: {
+          added_by: string | null;
           age_recommendation: number;
           created_at: string;
           description: string;
           id: string;
+          image_url: string | null;
           max_play_time: number;
           max_players: number;
           min_play_time: number;
@@ -27,13 +77,17 @@ export type Database = {
           name: string;
           price: number;
           publisher: string;
+          stock: number;
+          updated_by: string | null;
           year_published: number;
         };
         Insert: {
+          added_by?: string | null;
           age_recommendation: number;
           created_at?: string;
           description: string;
           id?: string;
+          image_url?: string | null;
           max_play_time: number;
           max_players: number;
           min_play_time: number;
@@ -41,13 +95,17 @@ export type Database = {
           name: string;
           price: number;
           publisher: string;
+          stock?: number;
+          updated_by?: string | null;
           year_published: number;
         };
         Update: {
+          added_by?: string | null;
           age_recommendation?: number;
           created_at?: string;
           description?: string;
           id?: string;
+          image_url?: string | null;
           max_play_time?: number;
           max_players?: number;
           min_play_time?: number;
@@ -55,6 +113,8 @@ export type Database = {
           name?: string;
           price?: number;
           publisher?: string;
+          stock?: number;
+          updated_by?: string | null;
           year_published?: number;
         };
         Relationships: [];

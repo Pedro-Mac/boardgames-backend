@@ -8,7 +8,7 @@ export interface AppOptions
 const options: AppOptions = {
   ajv: {
     customOptions: {
-      coerceTypes: false,
+      coerceTypes: "array",
     },
   },
 };
