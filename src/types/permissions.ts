@@ -14,3 +14,11 @@ export interface CreatePermissionOutput {
 export interface DeletePermissionParams {
   id: string;
 }
+
+export interface AssignPermissionToUserBody {
+  permission_id: string;
+}
+
+export interface AssignPermissionToUserParams {
+  userId: string;
+}
