@@ -22,3 +22,8 @@ export interface AssignPermissionToUserBody {
 export interface AssignPermissionToUserParams {
   userId: string;
 }
+
+export interface RemovePermissionFromUserParams {
+  userId: string;
+  permissionId: string;
+}
