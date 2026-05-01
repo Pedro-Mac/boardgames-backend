@@ -12,7 +12,8 @@
     "build:ts": "tsc",
     "watch:ts": "tsc -w",
     "dev": "npm run build:ts && concurrently -k -p \"[{name}]\" -n \"TypeScript,App\" -c \"yellow.bold,cyan.bold\" \"npm:watch:ts\" \"npm:dev:start\"",
-    "dev:start": "fastify start --ignore-watch=.ts$ -w -l info -P -o dist/app.js"
+    "dev:start": "fastify start --ignore-watch=.ts$ -w -l info -P -o dist/app.js",
+    "update-types": "supabase gen types typescript --project-id idepafalczhfrnwppvmm --schema public > src/types/database.ts"
   },
   "keywords": [],
   "author": "",
@@ -34,6 +35,7 @@
     "c8": "^10.1.2",
     "concurrently": "^9.0.0",
     "fastify-tsconfig": "^3.0.0",
+    "supabase": "^2.98.0",
     "ts-node": "^10.4.0",
     "typescript": "~5.9.2"
   }
