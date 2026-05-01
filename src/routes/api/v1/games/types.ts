@@ -23,6 +23,7 @@ export interface GameOutput {
   // People & companies
   attribution: {
     publisher: string;
+    authors: string[];
     designers: string[];
     artists: string[];
   };

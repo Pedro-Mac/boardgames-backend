@@ -1,6 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import { FastifyPluginAsync } from "fastify";
 import { ListGamesRoute } from "./types";
+import { mapGameToOutput } from "./mappers";
 
 const listQuerySchema = Type.Object({
   page: Type.Optional(Type.Number({ minimum: 1, default: 1 })),
@@ -17,7 +18,23 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
     },
     async (request, reply) => {
       const page = request.query.page ?? 1;
-      return { message: "List of games" };
+      const size = request.query.size ?? 10;
+      const from = (page - 1) * size;
+      const to = from + size - 1;
+
+      const res = await fastify.supabase
+        .from("games")
+        .select("*", { count: "exact" })
+        .range(from, to);
+
+      if (res.error) {
+        request.log.error(res.error, "Error fetching games from database");
+        throw fastify.httpErrors.serviceUnavailable("Database unavailable");
+      }
+
+      const output = res.data.map((game) => mapGameToOutput(game));
+
+      reply.send(output);
     },
   );
 };
