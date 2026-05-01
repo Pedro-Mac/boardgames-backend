@@ -22,14 +22,14 @@ interface AddGameRoute extends RouteGenericInterface {
 }
 
 const bodySchema = Type.Object({
-  name: Type.String(),
+  title: Type.String(),
   description: Type.String(),
   price: Type.Number(),
   min_players: Type.Number(),
   max_players: Type.Number(),
   min_play_time: Type.Number(),
   max_play_time: Type.Number(),
-  age_recommendation: Type.Number(),
+  min_age: Type.Number(),
   publisher: Type.String(),
   year_published: Type.Number(),
   stock: Type.Optional(Type.Number({ minimum: 0, default: 0 })),
@@ -67,14 +67,14 @@ interface UpdateGameRoute extends RouteGenericInterface {
 }
 
 const updateBodySchema = Type.Object({
-  name: Type.Optional(Type.String()),
+  title: Type.Optional(Type.String()),
   description: Type.Optional(Type.String()),
   price: Type.Optional(Type.Number()),
   min_players: Type.Optional(Type.Number()),
   max_players: Type.Optional(Type.Number()),
   min_play_time: Type.Optional(Type.Number()),
   max_play_time: Type.Optional(Type.Number()),
-  age_recommendation: Type.Optional(Type.Number()),
+  min_age: Type.Optional(Type.Number()),
   publisher: Type.Optional(Type.String()),
   year_published: Type.Optional(Type.Number()),
   image_url: Type.Optional(Type.Union([Type.String(), Type.Null()])),
@@ -306,14 +306,14 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
     },
     async (request, reply) => {
       const {
-        name,
+        title,
         description,
         price,
         min_players,
         max_players,
         min_play_time,
         max_play_time,
-        age_recommendation,
+        min_age,
         publisher,
         year_published,
         stock,
@@ -324,14 +324,14 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
       const response = await fastify.supabase
         .from("games")
         .insert({
-          name,
+          title,
           description,
           price,
           min_players,
           max_players,
           min_play_time,
           max_play_time,
-          age_recommendation,
+          min_age,
           publisher,
           year_published,
           stock: stock ?? 0,

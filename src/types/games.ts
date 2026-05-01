@@ -6,32 +6,37 @@ export interface Category {
 
 export interface Game {
   id: string;
-  name: string;
+  title: string;
   description: string;
   price: number; // in cents
   min_players: number;
   max_players: number;
   min_play_time: number; // in minutes
   max_play_time: number; // in minutes
-  age_recommendation: number; // minimum age recommendation
+  min_age: number; // minimum age recommendation
   publisher: string;
   year_published: number;
   image_url: string | null;
   stock: number;
+  game_type: string;
+  authors: string[];
+  illustrators: string[];
+  designers: string[];
+  artists: string[];
   added_by: string | null;
   created_at: string; // ISO date string
   categories: Category[];
 }
 
 export interface CreateGameInput {
-  name: string;
+  title: string;
   description: string;
   price: number; // in cents
   min_players: number;
   max_players: number;
   min_play_time: number; // in minutes
   max_play_time: number; // in minutes
-  age_recommendation: number; // minimum age recommendation
+  min_age: number; // minimum age recommendation
   publisher: string;
   year_published: number;
   stock?: number;
@@ -40,14 +45,14 @@ export interface CreateGameInput {
 }
 
 export interface UpdateGameInput {
-  name?: string;
+  title?: string;
   description?: string;
   price?: number; // in cents
   min_players?: number;
   max_players?: number;
   min_play_time?: number; // in minutes
   max_play_time?: number; // in minutes
-  age_recommendation?: number; // minimum age recommendation
+  min_age?: number; // minimum age recommendation
   publisher?: string;
   year_published?: number;
   image_url?: string | null;
