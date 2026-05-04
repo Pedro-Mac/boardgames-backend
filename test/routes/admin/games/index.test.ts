@@ -12,7 +12,7 @@ const TEST_SECRET = "test-secret-that-is-at-least-32-characters-long";
 function makeFakeGame(index: number) {
   return {
     id: `game-${index}`,
-    name: `Game ${index}`,
+    title: `Game ${index}`,
     description: `Description ${index}`,
     price: 1000 + index,
     min_players: 2,
@@ -184,7 +184,7 @@ async function buildApp(opts: BuildOptions = {}) {
   );
 
   const updateBodySchema = Type.Object({
-    name: Type.Optional(Type.String()),
+    title: Type.Optional(Type.String()),
     description: Type.Optional(Type.String()),
     price: Type.Optional(Type.Number()),
     min_players: Type.Optional(Type.Number()),
@@ -435,7 +435,7 @@ test("get game rejects unauthenticated request", async () => {
 // --- Update game tests ---
 
 test("update game returns updated game", async () => {
-  const updatedGame = { ...makeFakeGame(1), name: "Updated Name" };
+  const updatedGame = { ...makeFakeGame(1), title: "Updated Name" };
   const { app, token } = await buildApp({
     permissions: ["game_update"],
     supabase: { updateData: updatedGame },
@@ -445,7 +445,7 @@ test("update game returns updated game", async () => {
     method: "PUT",
     url: "/api/v1/admin/games/game-1",
     headers: { authorization: `Bearer ${token}` },
-    payload: { name: "Updated Name" },
+    payload: { title: "Updated Name" },
   });
 
   assert.strictEqual(res.statusCode, 200);
@@ -480,7 +480,7 @@ test("update game returns 404 when game not found", async () => {
     method: "PUT",
     url: "/api/v1/admin/games/nonexistent-id",
     headers: { authorization: `Bearer ${token}` },
-    payload: { name: "Updated Name" },
+    payload: { title: "Updated Name" },
   });
 
   assert.strictEqual(res.statusCode, 404);
@@ -497,7 +497,7 @@ test("update game returns 400 on database error", async () => {
     method: "PUT",
     url: "/api/v1/admin/games/game-1",
     headers: { authorization: `Bearer ${token}` },
-    payload: { name: "Updated Name" },
+    payload: { title: "Updated Name" },
   });
 
   assert.strictEqual(res.statusCode, 400);
@@ -513,7 +513,7 @@ test("update game rejects request without game_update permission", async () => {
     method: "PUT",
     url: "/api/v1/admin/games/game-1",
     headers: { authorization: `Bearer ${token}` },
-    payload: { name: "Updated Name" },
+    payload: { title: "Updated Name" },
   });
 
   assert.strictEqual(res.statusCode, 403);
@@ -526,7 +526,7 @@ test("update game rejects unauthenticated request", async () => {
   const res = await app.inject({
     method: "PUT",
     url: "/api/v1/admin/games/game-1",
-    payload: { name: "Updated Name" },
+    payload: { title: "Updated Name" },
   });
 
   assert.strictEqual(res.statusCode, 401);

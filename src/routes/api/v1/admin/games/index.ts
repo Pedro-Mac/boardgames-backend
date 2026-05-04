@@ -2,23 +2,21 @@ import { FastifyPluginAsync, RouteGenericInterface } from "fastify";
 import {
   Category,
   CreateGameInput,
-  CreateGameOutput,
-  Game,
   GetGameParams,
-  GetGameOutput,
   ListGamesQuery,
   ListGamesOutput,
   UpdateGameInput,
-  UpdateGameOutput,
-} from "../../../../../types/games";
+  GameOutput,
+} from "./types";
 import { HttpError } from "@fastify/sensible";
 import { Type } from "@sinclair/typebox";
 import { requirePermission } from "../../../../../hooks/authorize";
 import { supabaseErrorCode } from "../../../../../constants/supabase-errors";
+import { mapDbGameToGame } from "./mappers";
 
 interface AddGameRoute extends RouteGenericInterface {
   Body: CreateGameInput;
-  Reply: CreateGameOutput | HttpError;
+  Reply: GameOutput | HttpError;
 }
 
 const bodySchema = Type.Object({
@@ -29,7 +27,7 @@ const bodySchema = Type.Object({
   max_players: Type.Number(),
   min_play_time: Type.Number(),
   max_play_time: Type.Number(),
-  min_age: Type.Number(),
+  age_recommendation: Type.Number(),
   publisher: Type.String(),
   year_published: Type.Number(),
   stock: Type.Optional(Type.Number({ minimum: 0, default: 0 })),
@@ -43,7 +41,7 @@ const schema = {
 
 interface GetGameRoute extends RouteGenericInterface {
   Params: GetGameParams;
-  Reply: GetGameOutput | HttpError;
+  Reply: GameOutput | HttpError;
 }
 
 interface DeleteGameRoute extends RouteGenericInterface {
@@ -63,7 +61,7 @@ interface ListGamesRoute extends RouteGenericInterface {
 interface UpdateGameRoute extends RouteGenericInterface {
   Params: GetGameParams;
   Body: UpdateGameInput;
-  Reply: UpdateGameOutput | HttpError;
+  Reply: GameOutput | HttpError;
 }
 
 const updateBodySchema = Type.Object({
@@ -74,7 +72,7 @@ const updateBodySchema = Type.Object({
   max_players: Type.Optional(Type.Number()),
   min_play_time: Type.Optional(Type.Number()),
   max_play_time: Type.Optional(Type.Number()),
-  min_age: Type.Optional(Type.Number()),
+  age_recommendation: Type.Optional(Type.Number()),
   publisher: Type.Optional(Type.String()),
   year_published: Type.Optional(Type.Number()),
   image_url: Type.Optional(Type.Union([Type.String(), Type.Null()])),
@@ -148,10 +146,12 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
       const totalPages = Math.ceil(total / size);
 
       const result: ListGamesOutput = {
-        games: rows.map((row) => ({
-          ...(row as unknown as Game),
-          categories: categoryMap.get(row.id) ?? [],
-        })),
+        games: rows.map((row) =>
+          mapDbGameToGame(
+            row as unknown as Record<string, unknown>,
+            categoryMap.get(row.id) ?? [],
+          ),
+        ),
         pagination: { page, size, total, totalPages },
       };
 
@@ -184,11 +184,11 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
 
       const categoryMap = await attachCategories(fastify, [id]);
 
-      const result: GetGameOutput = {
-        game: {
-          ...(response.data as unknown as Game),
-          categories: categoryMap.get(id) ?? [],
-        },
+      const result: GameOutput = {
+        game: mapDbGameToGame(
+          response.data as unknown as Record<string, unknown>,
+          categoryMap.get(id) ?? [],
+        ),
       };
 
       reply.send(result);
@@ -203,16 +203,29 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
     },
     async (request, reply) => {
       const { id } = request.params;
-      const { category_ids, ...fields } = request.body;
+      const { category_ids, age_recommendation, ...fields } = request.body;
 
-      if (Object.keys(fields).length === 0 && category_ids === undefined) {
-        throw fastify.httpErrors.badRequest("At least one field must be provided");
+      if (
+        Object.keys(fields).length === 0 &&
+        age_recommendation === undefined &&
+        category_ids === undefined
+      ) {
+        throw fastify.httpErrors.badRequest(
+          "At least one field must be provided",
+        );
       }
 
-      if (Object.keys(fields).length > 0) {
+      const dbUpdate = {
+        ...fields,
+        ...(age_recommendation !== undefined
+          ? { min_age: age_recommendation }
+          : {}),
+      };
+
+      if (Object.keys(dbUpdate).length > 0) {
         const updateResponse = await fastify.supabase
           .from("games")
-          .update(fields)
+          .update(dbUpdate)
           .eq("id", id)
           .select("*")
           .single();
@@ -235,7 +248,9 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
         if (category_ids.length > 0) {
           const catResponse = await fastify.supabase
             .from("game_categories")
-            .insert(category_ids.map((cid) => ({ game_id: id, category_id: cid })));
+            .insert(
+              category_ids.map((cid) => ({ game_id: id, category_id: cid })),
+            );
 
           if (catResponse.error) {
             console.error("Error updating game categories:", catResponse.error);
@@ -259,11 +274,11 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
 
       const categoryMap = await attachCategories(fastify, [id]);
 
-      const result: UpdateGameOutput = {
-        game: {
-          ...(gameResponse.data as unknown as Game),
-          categories: categoryMap.get(id) ?? [],
-        },
+      const result: GameOutput = {
+        game: mapDbGameToGame(
+          gameResponse.data as unknown as Record<string, unknown>,
+          categoryMap.get(id) ?? [],
+        ),
       };
 
       reply.send(result);
@@ -313,7 +328,7 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
         max_players,
         min_play_time,
         max_play_time,
-        min_age,
+        age_recommendation,
         publisher,
         year_published,
         stock,
@@ -331,7 +346,7 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
           max_players,
           min_play_time,
           max_play_time,
-          min_age,
+          min_age: age_recommendation,
           publisher,
           year_published,
           stock: stock ?? 0,
@@ -350,7 +365,12 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
       if (category_ids && category_ids.length > 0) {
         const catResponse = await fastify.supabase
           .from("game_categories")
-          .insert(category_ids.map((cid) => ({ game_id: newGameId, category_id: cid })));
+          .insert(
+            category_ids.map((cid) => ({
+              game_id: newGameId,
+              category_id: cid,
+            })),
+          );
 
         if (catResponse.error) {
           console.error("Error inserting game categories:", catResponse.error);
@@ -360,11 +380,11 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
 
       const categoryMap = await attachCategories(fastify, [newGameId]);
 
-      const newGame: CreateGameOutput = {
-        game: {
-          ...(response.data as unknown as Game),
-          categories: categoryMap.get(newGameId) ?? [],
-        },
+      const newGame: GameOutput = {
+        game: mapDbGameToGame(
+          response.data as unknown as Record<string, unknown>,
+          categoryMap.get(newGameId) ?? [],
+        ),
       };
 
       reply.send(newGame);
