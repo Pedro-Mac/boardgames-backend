@@ -184,14 +184,12 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
 
       const categoryMap = await attachCategories(fastify, [id]);
 
-      const result: GameOutput = {
-        game: mapDbGameToGame(
+      reply.send(
+        mapDbGameToGame(
           response.data as unknown as Record<string, unknown>,
           categoryMap.get(id) ?? [],
         ),
-      };
-
-      reply.send(result);
+      );
     },
   );
 
@@ -274,14 +272,12 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
 
       const categoryMap = await attachCategories(fastify, [id]);
 
-      const result: GameOutput = {
-        game: mapDbGameToGame(
+      reply.send(
+        mapDbGameToGame(
           gameResponse.data as unknown as Record<string, unknown>,
           categoryMap.get(id) ?? [],
         ),
-      };
-
-      reply.send(result);
+      );
     },
   );
 
@@ -380,14 +376,12 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
 
       const categoryMap = await attachCategories(fastify, [newGameId]);
 
-      const newGame: GameOutput = {
-        game: mapDbGameToGame(
+      reply.send(
+        mapDbGameToGame(
           response.data as unknown as Record<string, unknown>,
           categoryMap.get(newGameId) ?? [],
         ),
-      };
-
-      reply.send(newGame);
+      );
     },
   );
 };

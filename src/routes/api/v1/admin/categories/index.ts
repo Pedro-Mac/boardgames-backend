@@ -1,5 +1,5 @@
 import { FastifyPluginAsync, RouteGenericInterface } from "fastify";
-import { Category, ListCategoriesOutput } from "../../../../../types/games";
+import { Category, ListCategoriesOutput } from "../games/types";
 import { HttpError } from "@fastify/sensible";
 import { requirePermission } from "../../../../../hooks/authorize";
 

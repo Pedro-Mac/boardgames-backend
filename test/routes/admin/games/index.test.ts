@@ -4,7 +4,7 @@ import Fastify from "fastify";
 import fastifyJwt from "@fastify/jwt";
 import sensible from "@fastify/sensible";
 import { requirePermission } from "../../../../src/hooks/authorize";
-import { ListGamesQuery, ListGamesOutput, GetGameParams, GetGameOutput, UpdateGameInput, UpdateGameOutput } from "../../../../src/types/games";
+import type { ListGamesQuery, ListGamesOutput, GetGameParams, UpdateGameInput, GameOutput } from "../../../../src/routes/api/v1/admin/games/types";
 import { Type } from "@sinclair/typebox";
 
 const TEST_SECRET = "test-secret-that-is-at-least-32-characters-long";
@@ -157,7 +157,7 @@ async function buildApp(opts: BuildOptions = {}) {
     },
   );
 
-  app.get<{ Params: GetGameParams; Reply: GetGameOutput }>(
+  app.get<{ Params: GetGameParams; Reply: GameOutput }>(
     "/api/v1/admin/games/:id",
     {
       schema: { params: getGameParamsSchema },
@@ -179,7 +179,7 @@ async function buildApp(opts: BuildOptions = {}) {
         throw app.httpErrors.badRequest(response.error.message);
       }
 
-      return { game: response.data };
+      return response.data;
     },
   );
 
@@ -197,7 +197,7 @@ async function buildApp(opts: BuildOptions = {}) {
     image_url: Type.Optional(Type.String()),
   });
 
-  app.put<{ Params: GetGameParams; Body: UpdateGameInput; Reply: UpdateGameOutput }>(
+  app.put<{ Params: GetGameParams; Body: UpdateGameInput; Reply: GameOutput }>(
     "/api/v1/admin/games/:id",
     {
       schema: { params: getGameParamsSchema, body: updateBodySchema },
@@ -224,7 +224,7 @@ async function buildApp(opts: BuildOptions = {}) {
         throw app.httpErrors.badRequest(response.error.message);
       }
 
-      return { game: response.data };
+      return response.data;
     },
   );
 
@@ -371,7 +371,7 @@ test("get game returns game when found", async () => {
 
   assert.strictEqual(res.statusCode, 200);
   const payload = JSON.parse(res.payload);
-  assert.deepStrictEqual(payload.game, game);
+  assert.deepStrictEqual(payload, game);
   await app.close();
 });
 
@@ -450,7 +450,7 @@ test("update game returns updated game", async () => {
 
   assert.strictEqual(res.statusCode, 200);
   const payload = JSON.parse(res.payload);
-  assert.deepStrictEqual(payload.game, updatedGame);
+  assert.deepStrictEqual(payload, updatedGame);
   await app.close();
 });
 
