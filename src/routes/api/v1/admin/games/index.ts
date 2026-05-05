@@ -1,6 +1,5 @@
 import { FastifyPluginAsync, RouteGenericInterface } from "fastify";
 import {
-  Category,
   CreateGameInput,
   GetGameParams,
   ListGamesQuery,
@@ -32,7 +31,6 @@ const bodySchema = Type.Object({
   year_published: Type.Number(),
   stock: Type.Optional(Type.Number({ minimum: 0, default: 0 })),
   image_url: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  category_ids: Type.Optional(Type.Array(Type.String())),
 });
 
 const schema = {
@@ -77,43 +75,12 @@ const updateBodySchema = Type.Object({
   year_published: Type.Optional(Type.Number()),
   image_url: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   stock: Type.Optional(Type.Number({ minimum: 0 })),
-  category_ids: Type.Optional(Type.Array(Type.String())),
 });
 
 const listQuerySchema = Type.Object({
   page: Type.Optional(Type.Number({ minimum: 1, default: 1 })),
   size: Type.Optional(Type.Number({ minimum: 1, maximum: 100, default: 10 })),
 });
-
-/** Attach categories to a list of game rows from Supabase. */
-async function attachCategories(
-  fastify: Parameters<FastifyPluginAsync>[0],
-  gameIds: string[],
-): Promise<Map<string, Category[]>> {
-  const map = new Map<string, Category[]>();
-  if (gameIds.length === 0) return map;
-
-  const response = await fastify.supabase
-    .from("game_categories")
-    .select("game_id, categories(id, name, created_at)")
-    .in("game_id", gameIds);
-
-  if (response.error) {
-    console.error("Error fetching categories for games:", response.error);
-    return map;
-  }
-
-  for (const row of response.data ?? []) {
-    const categories = Array.isArray(row.categories)
-      ? (row.categories as Category[])
-      : row.categories
-        ? [row.categories as Category]
-        : [];
-    map.set(row.game_id, categories);
-  }
-
-  return map;
-}
 
 const games: FastifyPluginAsync = async (fastify): Promise<void> => {
   fastify.get<ListGamesRoute>(
@@ -139,8 +106,6 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
       }
 
       const rows = response.data ?? [];
-      const gameIds = rows.map((g) => g.id);
-      const categoryMap = await attachCategories(fastify, gameIds);
 
       const total = response.count ?? 0;
       const totalPages = Math.ceil(total / size);
@@ -149,7 +114,6 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
         games: rows.map((row) =>
           mapDbGameToGame(
             row as unknown as Record<string, unknown>,
-            categoryMap.get(row.id) ?? [],
           ),
         ),
         pagination: { page, size, total, totalPages },
@@ -182,12 +146,9 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
         throw fastify.httpErrors.badRequest(response.error.message);
       }
 
-      const categoryMap = await attachCategories(fastify, [id]);
-
       reply.send(
         mapDbGameToGame(
           response.data as unknown as Record<string, unknown>,
-          categoryMap.get(id) ?? [],
         ),
       );
     },
@@ -201,12 +162,11 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
     },
     async (request, reply) => {
       const { id } = request.params;
-      const { category_ids, age_recommendation, ...fields } = request.body;
+      const { age_recommendation, ...fields } = request.body;
 
       if (
         Object.keys(fields).length === 0 &&
-        age_recommendation === undefined &&
-        category_ids === undefined
+        age_recommendation === undefined
       ) {
         throw fastify.httpErrors.badRequest(
           "At least one field must be provided",
@@ -237,26 +197,6 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
         }
       }
 
-      if (category_ids !== undefined) {
-        await fastify.supabase
-          .from("game_categories")
-          .delete()
-          .eq("game_id", id);
-
-        if (category_ids.length > 0) {
-          const catResponse = await fastify.supabase
-            .from("game_categories")
-            .insert(
-              category_ids.map((cid) => ({ game_id: id, category_id: cid })),
-            );
-
-          if (catResponse.error) {
-            console.error("Error updating game categories:", catResponse.error);
-            throw fastify.httpErrors.badRequest(catResponse.error.message);
-          }
-        }
-      }
-
       const gameResponse = await fastify.supabase
         .from("games")
         .select("*")
@@ -270,12 +210,9 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
         throw fastify.httpErrors.badRequest(gameResponse.error.message);
       }
 
-      const categoryMap = await attachCategories(fastify, [id]);
-
       reply.send(
         mapDbGameToGame(
           gameResponse.data as unknown as Record<string, unknown>,
-          categoryMap.get(id) ?? [],
         ),
       );
     },
@@ -329,7 +266,6 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
         year_published,
         stock,
         image_url,
-        category_ids,
       } = request.body;
 
       const response = await fastify.supabase
@@ -356,30 +292,9 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
         throw fastify.httpErrors.badRequest(response.error.message);
       }
 
-      const newGameId: string = response.data.id;
-
-      if (category_ids && category_ids.length > 0) {
-        const catResponse = await fastify.supabase
-          .from("game_categories")
-          .insert(
-            category_ids.map((cid) => ({
-              game_id: newGameId,
-              category_id: cid,
-            })),
-          );
-
-        if (catResponse.error) {
-          console.error("Error inserting game categories:", catResponse.error);
-          throw fastify.httpErrors.badRequest(catResponse.error.message);
-        }
-      }
-
-      const categoryMap = await attachCategories(fastify, [newGameId]);
-
       reply.send(
         mapDbGameToGame(
           response.data as unknown as Record<string, unknown>,
-          categoryMap.get(newGameId) ?? [],
         ),
       );
     },

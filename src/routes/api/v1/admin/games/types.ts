@@ -1,9 +1,3 @@
-export interface Category {
-  id: string;
-  name: string;
-  created_at: string;
-}
-
 export interface GameOutput {
   id: string;
 
@@ -34,7 +28,6 @@ export interface GameOutput {
 
   // Classification
   taxonomy: {
-    categories: string[];
     mechanics: string[];
   };
 
@@ -65,7 +58,6 @@ export interface CreateGameInput {
   year_published: number;
   stock?: number;
   image_url?: string | null;
-  category_ids?: string[];
 }
 
 export interface UpdateGameInput {
@@ -81,7 +73,6 @@ export interface UpdateGameInput {
   year_published?: number;
   image_url?: string | null;
   stock?: number;
-  category_ids?: string[];
 }
 
 export interface GetGameParams {
@@ -103,8 +94,4 @@ export interface Pagination {
 export interface ListGamesOutput {
   games: GameOutput[];
   pagination: Pagination;
-}
-
-export interface ListCategoriesOutput {
-  categories: Category[];
 }

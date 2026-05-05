@@ -1,4 +1,4 @@
-import { Category, GameOutput } from "./types";
+import { GameOutput } from "./types";
 
 interface DbGameRow {
   id: string;
@@ -18,7 +18,6 @@ interface DbGameRow {
 /** Map a raw DB game row to the API GameOutput shape. */
 export function mapDbGameToGame(
   row: Record<string, unknown>,
-  categories: Category[] = [],
 ): GameOutput {
   const r = row as DbGameRow;
 
@@ -44,7 +43,6 @@ export function mapDbGameToGame(
       artists: [],
     },
     taxonomy: {
-      categories: categories.map((c) => c.name),
       mechanics: [],
     },
     relationships: {
