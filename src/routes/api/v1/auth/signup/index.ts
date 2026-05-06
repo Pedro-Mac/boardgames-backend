@@ -46,6 +46,7 @@ const signup: FastifyPluginAsync = async (fastify): Promise<void> => {
     reply.send({
       message: "User signed up successfully",
       user: signupRes.data.user,
+      session: signupRes.data.session,
     });
   });
 };
