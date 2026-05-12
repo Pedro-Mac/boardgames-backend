@@ -1,20 +1,12 @@
 import { FastifyPluginAsync } from "fastify";
 import { SignupRoute } from "./types";
-
-const emailRegex =
-  /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
-
-const validateEmail = (email: string): boolean => {
-  return email.length <= 254 && emailRegex.test(email.trim().toLowerCase());
-};
+import { VALIDATE } from "../../../../../utils/validations";
 
 const signup: FastifyPluginAsync = async (fastify): Promise<void> => {
   fastify.post<SignupRoute>("/", async (request, reply) => {
     const { email, password } = request.body;
 
-    const isValidEmail = validateEmail(email);
-
-    if (!isValidEmail) {
+    if (!VALIDATE.EMAIL) {
       request.log.warn({ email }, "Invalid email format");
       throw fastify.httpErrors.badRequest(`Invalid email format - ${email}`);
     }
