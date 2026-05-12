@@ -3,7 +3,7 @@ import { SigninRoute } from "./types";
 import { VALIDATE } from "../../../../../utils/validations";
 
 const signin: FastifyPluginAsync = async (fastify) => {
-  fastify.post<SigninRoute>("/signin", async (request, reply) => {
+  fastify.post<SigninRoute>("/", async (request, reply) => {
     const { email, password } = request.body;
 
     const signInRes = await fastify.supabase.auth.signInWithPassword({
