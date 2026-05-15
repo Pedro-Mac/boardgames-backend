@@ -4,11 +4,21 @@ import { VALIDATE } from "../../../../../utils/validations";
 
 const signup: FastifyPluginAsync = async (fastify): Promise<void> => {
   fastify.post<SignupRoute>("/", async (request, reply) => {
-    const { email, password } = request.body;
+    const { email, password, firstName, lastName } = request.body;
 
     if (!VALIDATE.EMAIL) {
       request.log.warn({ email }, "Invalid email format");
       throw fastify.httpErrors.badRequest(`Invalid email format - ${email}`);
+    }
+
+    if (!firstName || !lastName) {
+      request.log.warn(
+        { firstName, lastName },
+        "Missing first name or last name",
+      );
+      throw fastify.httpErrors.badRequest(
+        "First name and last name are required",
+      );
     }
 
     const user = await fastify.supabase
@@ -39,7 +49,12 @@ const signup: FastifyPluginAsync = async (fastify): Promise<void> => {
     const userRes = await fastify.supabase
       .from("users")
       .insert([
-        { email: email, name: "some name", id: signupRes.data.user.id },
+        {
+          email: email,
+          id: signupRes.data.user.id,
+          first_name: firstName,
+          last_name: lastName,
+        },
       ]);
 
     if (userRes.error) {
