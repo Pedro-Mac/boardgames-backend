@@ -260,18 +260,21 @@ export type Database = {
       users: {
         Row: {
           email: string | null
+          first_name: string
           id: string
-          name: string | null
+          last_name: string
         }
         Insert: {
           email?: string | null
+          first_name?: string
           id: string
-          name?: string | null
+          last_name?: string
         }
         Update: {
           email?: string | null
+          first_name?: string
           id?: string
-          name?: string | null
+          last_name?: string
         }
         Relationships: []
       }
