@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      addresses: {
+        Row: {
+          city: string
+          country: string
+          created_at: string
+          full_name: string
+          id: string
+          is_default: boolean
+          phone: string | null
+          postal_code: string
+          state: string | null
+          street_line_1: string
+          street_line_2: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          city: string
+          country: string
+          created_at?: string
+          full_name: string
+          id?: string
+          is_default?: boolean
+          phone?: string | null
+          postal_code: string
+          state?: string | null
+          street_line_1: string
+          street_line_2?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          city?: string
+          country?: string
+          created_at?: string
+          full_name?: string
+          id?: string
+          is_default?: boolean
+          phone?: string | null
+          postal_code?: string
+          state?: string | null
+          street_line_1?: string
+          street_line_2?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "addresses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string
