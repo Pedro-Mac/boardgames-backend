@@ -2,7 +2,19 @@ import { Type } from "@sinclair/typebox";
 import { FastifyPluginAsync, RouteGenericInterface } from "fastify";
 import { HttpError } from "@fastify/sensible";
 import { SupabaseJwtPayload } from "../../../../../plugins/jwt";
-import { AddressOutput, CreateAddressInput } from "./types";
+import {
+  AddressOutput,
+  CreateAddressInput,
+  ListAddressesOutput,
+  ListAddressesQuery,
+} from "./types";
+
+const PAGE_SIZE = 10;
+
+interface ListAddressesRoute extends RouteGenericInterface {
+  Querystring: ListAddressesQuery;
+  Reply: ListAddressesOutput | HttpError;
+}
 
 interface CreateAddressRoute extends RouteGenericInterface {
   Body: CreateAddressInput;
@@ -25,6 +37,61 @@ const bodySchema = Type.Object(
 );
 
 const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
+  const listQuerySchema = Type.Object({
+    page: Type.Optional(Type.Number({ minimum: 1, default: 1 })),
+  });
+
+  fastify.get<ListAddressesRoute>(
+    "/",
+    {
+      schema: { querystring: listQuerySchema },
+      preHandler: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      const { sub } = request.user as SupabaseJwtPayload;
+      const page = request.query.page ?? 1;
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      const { data, count, error } = await fastify.supabase
+        .from("addresses")
+        .select("*", { count: "exact" })
+        .eq("user_id", sub)
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: true })
+        .range(from, to);
+
+      if (error) {
+        request.log.error(error, "Error fetching user addresses");
+        throw fastify.httpErrors.internalServerError("Error fetching addresses");
+      }
+
+      const total = count ?? 0;
+      const rows = data ?? [];
+
+      reply.send({
+        addresses: rows.map((row) => ({
+          id: row.id,
+          fullName: row.full_name,
+          streetLine1: row.street_line_1,
+          streetLine2: row.street_line_2,
+          city: row.city,
+          state: row.state,
+          postalCode: row.postal_code,
+          country: row.country,
+          phone: row.phone,
+          isDefault: row.is_default,
+          createdAt: row.created_at,
+        })),
+        pagination: {
+          page,
+          total,
+          totalPages: Math.ceil(total / PAGE_SIZE),
+        },
+      });
+    },
+  );
+
   fastify.post<CreateAddressRoute>(
     "/",
     {

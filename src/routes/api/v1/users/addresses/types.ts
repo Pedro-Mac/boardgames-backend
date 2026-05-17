@@ -12,6 +12,19 @@ export interface AddressOutput {
   createdAt: string;
 }
 
+export interface ListAddressesQuery {
+  page?: number;
+}
+
+export interface ListAddressesOutput {
+  addresses: AddressOutput[];
+  pagination: {
+    page: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 export interface CreateAddressInput {
   fullName: string;
   streetLine1: string;
