@@ -12,9 +12,7 @@ import type {
 
 const TEST_SECRET = "test-secret-that-is-at-least-32-characters-long";
 
-function makeFakeDbAddress(
-  overrides: Partial<Record<string, unknown>> = {},
-) {
+function makeFakeDbAddress(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id: "addr-1",
     user_id: "user-123",
@@ -125,7 +123,7 @@ async function buildApp(opts: BuildOptions = {}) {
         .eq("user_id", sub);
 
       if (countError) {
-        throw app.httpErrors.internalServerError("Error creating address");
+        throw app.httpErrors.serviceUnavailable("Error creating address");
       }
 
       const isFirstAddress = (count ?? 0) === 0;
@@ -149,7 +147,7 @@ async function buildApp(opts: BuildOptions = {}) {
         .single();
 
       if (error) {
-        throw app.httpErrors.internalServerError("Error creating address");
+        throw app.httpErrors.serviceUnavailable("Error creating address");
       }
 
       reply.code(201).send({

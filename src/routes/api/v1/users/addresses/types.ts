@@ -25,7 +25,7 @@ export interface ListAddressesOutput {
   };
 }
 
-export interface CreateAddressInput {
+export interface AddressInput {
   fullName: string;
   streetLine1: string;
   streetLine2?: string | null;

@@ -41,7 +41,7 @@ const login: FastifyPluginAsync = async (fastify): Promise<void> => {
 
     if (permissionsQuery.error) {
       console.error("Error fetching permissions:", permissionsQuery.error);
-      throw fastify.httpErrors.internalServerError(
+      throw fastify.httpErrors.serviceUnavailable(
         "Failed to fetch user permissions",
       );
     }
@@ -83,7 +83,9 @@ const login: FastifyPluginAsync = async (fastify): Promise<void> => {
         refresh_token: auth.data.session.refresh_token,
       });
 
-    const activeSession = refreshError ? auth.data.session : refreshData.session!;
+    const activeSession = refreshError
+      ? auth.data.session
+      : refreshData.session!;
 
     const session: Session = {
       tokenType: activeSession.token_type,

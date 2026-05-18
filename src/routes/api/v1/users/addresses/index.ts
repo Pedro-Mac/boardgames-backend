@@ -4,7 +4,7 @@ import { HttpError } from "@fastify/sensible";
 import { SupabaseJwtPayload } from "../../../../../plugins/jwt";
 import {
   AddressOutput,
-  CreateAddressInput,
+  AddressInput,
   ListAddressesOutput,
   ListAddressesQuery,
 } from "./types";
@@ -17,7 +17,13 @@ interface ListAddressesRoute extends RouteGenericInterface {
 }
 
 interface CreateAddressRoute extends RouteGenericInterface {
-  Body: CreateAddressInput;
+  Body: AddressInput;
+  Reply: { address: AddressOutput } | HttpError;
+}
+
+interface UpdateAddressRoute extends RouteGenericInterface {
+  Params: { id: string };
+  Body: AddressInput;
   Reply: { address: AddressOutput } | HttpError;
 }
 
@@ -63,7 +69,7 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
 
       if (error) {
         request.log.error(error, "Error fetching user addresses");
-        throw fastify.httpErrors.internalServerError("Error fetching addresses");
+        throw fastify.httpErrors.serviceUnavailable("Error fetching addresses");
       }
 
       const total = count ?? 0;
@@ -119,7 +125,7 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
 
       if (countError) {
         request.log.error(countError, "Error counting user addresses");
-        throw fastify.httpErrors.internalServerError("Error creating address");
+        throw fastify.httpErrors.serviceUnavailable("Error creating address");
       }
 
       const isFirstAddress = (count ?? 0) === 0;
@@ -144,7 +150,7 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
 
       if (error) {
         request.log.error(error, "Error inserting address");
-        throw fastify.httpErrors.internalServerError("Error creating address");
+        throw fastify.httpErrors.serviceUnavailable("Error creating address");
       }
 
       reply.code(201).send({
@@ -162,6 +168,63 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
           createdAt: data.created_at,
         },
       });
+    },
+  );
+
+  fastify.put<UpdateAddressRoute>(
+    "/:id",
+    {
+      schema: bodySchema,
+      preHandler: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      const { sub } = request.user as SupabaseJwtPayload;
+      const { id } = request.params;
+      const {
+        fullName,
+        streetLine1,
+        streetLine2,
+        city,
+        state,
+        postalCode,
+        country,
+        phone,
+        isDefault,
+      } = request.body;
+
+      // Check if the address belongs to the user
+      const { data: existingAddress, error: fetchError } =
+        await fastify.supabase
+          .from("addresses")
+          .select("*")
+          .eq("id", id)
+          .eq("user_id", sub)
+          .single();
+
+      if (fetchError) {
+        request.log.error(fetchError, "Error fetching address for update");
+        throw fastify.httpErrors.serviceUnavailable("Error updating address");
+      } else if (!existingAddress) {
+        throw fastify.httpErrors.notFound("Address not found");
+      }
+
+      const { data, error } = await fastify.supabase
+        .from("addresses")
+        .update({
+          full_name: fullName,
+          street_line_1: streetLine1,
+          street_line_2: streetLine2 ?? null,
+          city,
+          state: state ?? null,
+          postal_code: postalCode,
+          country,
+          phone: phone ?? null,
+          is_default: isDefault ?? existingAddress.is_default,
+        })
+        .eq("id", id)
+        .eq("user_id", sub)
+        .select("*")
+        .single();
     },
   );
 };

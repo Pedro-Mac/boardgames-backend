@@ -27,7 +27,7 @@ const password: FastifyPluginAsync = async (fastify): Promise<void> => {
 
       if (error) {
         request.log.error(error, "Error updating password");
-        throw fastify.httpErrors.internalServerError("Error updating password");
+        throw fastify.httpErrors.serviceUnavailable("Error updating password");
       }
 
       reply.send({ message: "Password updated successfully" });

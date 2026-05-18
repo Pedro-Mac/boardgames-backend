@@ -34,7 +34,7 @@ const me: FastifyPluginAsync = async (fastify): Promise<void> => {
 
       if (error) {
         request.log.error(error, "Error fetching user profile");
-        throw fastify.httpErrors.internalServerError(
+        throw fastify.httpErrors.serviceUnavailable(
           "Error fetching user profile",
         );
       }
@@ -79,7 +79,7 @@ const me: FastifyPluginAsync = async (fastify): Promise<void> => {
 
         if (authError) {
           request.log.error(authError, "Error updating auth email");
-          throw fastify.httpErrors.internalServerError(
+          throw fastify.httpErrors.serviceUnavailable(
             "Error updating user email",
           );
         }
@@ -94,7 +94,7 @@ const me: FastifyPluginAsync = async (fastify): Promise<void> => {
 
       if (error) {
         request.log.error(error, "Error updating user profile");
-        throw fastify.httpErrors.internalServerError(
+        throw fastify.httpErrors.serviceUnavailable(
           "Error updating user profile",
         );
       }

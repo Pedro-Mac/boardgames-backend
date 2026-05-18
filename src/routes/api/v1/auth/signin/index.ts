@@ -33,7 +33,7 @@ const signin: FastifyPluginAsync = async (fastify) => {
 
     if (profileRes.error || !profileRes.data) {
       request.log.error(profileRes.error, "Error fetching user profile");
-      throw fastify.httpErrors.internalServerError(
+      throw fastify.httpErrors.serviceUnavailable(
         "Error fetching user profile",
       );
     }
