@@ -106,6 +106,8 @@ Extends `fastify-tsconfig`. Key effective settings:
 - Use `@fastify/sensible` for HTTP errors (provides `fastify.httpErrors`)
 - Let Fastify's built-in error handling manage uncaught errors in route handlers
 - Use `reply.code()` and return objects for custom error responses
+- Never use internal server errors
+- For external dependencies errors use service unavailable
 
 ### Plugins
 - Wrap reusable plugins with `fastify-plugin` (`fp`) to expose decorators to outer scope
