@@ -225,6 +225,29 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
         .eq("user_id", sub)
         .select("*")
         .single();
+
+      if (error) {
+        throw fastify.httpErrors.serviceUnavailable(
+          "Error updating address",
+          error,
+        );
+      }
+
+      reply.send({
+        address: {
+          id: data.id,
+          fullName: data.full_name,
+          streetLine1: data.street_line_1,
+          streetLine2: data.street_line_2,
+          city: data.city,
+          state: data.state,
+          postalCode: data.postal_code,
+          country: data.country,
+          phone: data.phone,
+          isDefault: data.is_default,
+          createdAt: data.created_at,
+        },
+      });
     },
   );
 };
