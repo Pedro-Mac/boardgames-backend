@@ -18,13 +18,18 @@ interface ListAddressesRoute extends RouteGenericInterface {
 
 interface CreateAddressRoute extends RouteGenericInterface {
   Body: AddressInput;
-  Reply: { address: AddressOutput } | HttpError;
+  Reply: AddressOutput | HttpError;
+}
+
+interface GetAddressByIdRoute extends RouteGenericInterface {
+  Params: { id: string };
+  Reply: AddressOutput | HttpError;
 }
 
 interface UpdateAddressRoute extends RouteGenericInterface {
   Params: { id: string };
   Body: AddressInput;
-  Reply: { address: AddressOutput } | HttpError;
+  Reply: AddressOutput | HttpError;
 }
 
 const bodySchema = Type.Object(
@@ -154,19 +159,57 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
       }
 
       reply.code(201).send({
-        address: {
-          id: data.id,
-          fullName: data.full_name,
-          streetLine1: data.street_line_1,
-          streetLine2: data.street_line_2,
-          city: data.city,
-          state: data.state,
-          postalCode: data.postal_code,
-          country: data.country,
-          phone: data.phone,
-          isDefault: data.is_default,
-          createdAt: data.created_at,
-        },
+        id: data.id,
+        fullName: data.full_name,
+        streetLine1: data.street_line_1,
+        streetLine2: data.street_line_2,
+        city: data.city,
+        state: data.state,
+        postalCode: data.postal_code,
+        country: data.country,
+        phone: data.phone,
+        isDefault: data.is_default,
+        createdAt: data.created_at,
+      });
+    },
+  );
+
+  fastify.get<GetAddressByIdRoute>(
+    "/:id",
+    {
+      schema: bodySchema,
+      preHandler: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      const { sub } = request.user as SupabaseJwtPayload;
+      const { id } = request.params;
+
+      const { data, error } = await fastify.supabase
+        .from("addresses")
+        .select("*")
+        .eq("id", id)
+        .eq("user_id", sub)
+        .single();
+
+      if (error) {
+        request.log.error(error, "Error fetching address by ID");
+        throw fastify.httpErrors.serviceUnavailable("Error fetching address");
+      } else if (!data) {
+        throw fastify.httpErrors.notFound("Address not found");
+      }
+
+      reply.send({
+        id: data.id,
+        fullName: data.full_name,
+        streetLine1: data.street_line_1,
+        streetLine2: data.street_line_2,
+        city: data.city,
+        state: data.state,
+        postalCode: data.postal_code,
+        country: data.country,
+        phone: data.phone,
+        isDefault: data.is_default,
+        createdAt: data.created_at,
       });
     },
   );
@@ -234,19 +277,17 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
       }
 
       reply.send({
-        address: {
-          id: data.id,
-          fullName: data.full_name,
-          streetLine1: data.street_line_1,
-          streetLine2: data.street_line_2,
-          city: data.city,
-          state: data.state,
-          postalCode: data.postal_code,
-          country: data.country,
-          phone: data.phone,
-          isDefault: data.is_default,
-          createdAt: data.created_at,
-        },
+        id: data.id,
+        fullName: data.full_name,
+        streetLine1: data.street_line_1,
+        streetLine2: data.street_line_2,
+        city: data.city,
+        state: data.state,
+        postalCode: data.postal_code,
+        country: data.country,
+        phone: data.phone,
+        isDefault: data.is_default,
+        createdAt: data.created_at,
       });
     },
   );
