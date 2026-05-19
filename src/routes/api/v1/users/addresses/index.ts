@@ -32,6 +32,11 @@ interface UpdateAddressRoute extends RouteGenericInterface {
   Reply: AddressOutput | HttpError;
 }
 
+interface DeleteAddressRoute extends RouteGenericInterface {
+  Params: { id: string };
+  Reply: void | HttpError;
+}
+
 const bodySchema = Type.Object(
   {
     fullName: Type.String({ minLength: 1 }),
@@ -289,6 +294,44 @@ const addresses: FastifyPluginAsync = async (fastify): Promise<void> => {
         isDefault: data.is_default,
         createdAt: data.created_at,
       });
+    },
+  );
+
+  fastify.delete<DeleteAddressRoute>(
+    "/:id",
+    { preHandler: [fastify.authenticate] },
+    async (request, reply) => {
+      const { sub } = request.user as SupabaseJwtPayload;
+      const { id } = request.params;
+
+      // Check if the address belongs to the user
+      const { data: existingAddress, error: fetchError } =
+        await fastify.supabase
+          .from("addresses")
+          .select("*")
+          .eq("id", id)
+          .eq("user_id", sub)
+          .single();
+
+      if (fetchError) {
+        request.log.error(fetchError, "Error fetching address for deletion");
+        throw fastify.httpErrors.serviceUnavailable("Error deleting address");
+      } else if (!existingAddress) {
+        throw fastify.httpErrors.notFound("Address not found");
+      }
+
+      const { error } = await fastify.supabase
+        .from("addresses")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", sub);
+
+      if (error) {
+        request.log.error(error, "Error deleting address");
+        throw fastify.httpErrors.serviceUnavailable("Error deleting address");
+      }
+
+      reply.code(204).send();
     },
   );
 };
