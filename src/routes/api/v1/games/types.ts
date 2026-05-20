@@ -57,3 +57,10 @@ interface ListGamesQuery {
   page?: number;
   size?: number;
 }
+
+export interface GetGameRoute {
+  Params: {
+    id: string;
+  };
+  Reply: GameOutput | HttpError;
+}

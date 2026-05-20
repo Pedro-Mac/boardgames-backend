@@ -1,6 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import { FastifyPluginAsync } from "fastify";
-import { ListGamesRoute } from "./types";
+import { GetGameRoute, ListGamesRoute } from "./types";
 import { mapGameToOutput } from "./mappers";
 
 const listQuerySchema = Type.Object({
@@ -37,6 +37,31 @@ const games: FastifyPluginAsync = async (fastify): Promise<void> => {
       reply.send(output);
     },
   );
+
+  fastify.get<GetGameRoute>("/:id", async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    const res = await fastify.supabase
+      .from("games")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (res.error) {
+      if (res.status === 404) {
+        throw fastify.httpErrors.notFound("Game not found");
+      }
+      request.log.error(res.error, "Error fetching game from database");
+      throw fastify.httpErrors.serviceUnavailable("Database unavailable");
+    }
+
+    if (!res.data) {
+      throw fastify.httpErrors.notFound("Game not found");
+    }
+
+    const output = mapGameToOutput(res.data);
+    reply.send(output);
+  });
 };
 
 export default games;
